@@ -19,4 +19,5 @@ The following Skills are available out of the box, each of the documentation lin
 - [Productivity - To Do](../reference/skills/productivity-todo.md)
 - [Point of Interest](../reference/skills/pointofinterest.md)
 - [Automotive](../reference/skills/automotive.md)
+- [Phone](../reference/skills/phone.md)
 - [Experimental Skills](../reference/skills/experimental.md)

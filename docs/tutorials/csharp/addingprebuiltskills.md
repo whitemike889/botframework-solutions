@@ -61,6 +61,7 @@ Choose which of the provided Skills you wish to add to your Virtual Assistant, c
 |[To Do Skill](/docs/reference/skills/productivity-todo.md)|Add task management capabilities to your assistant. Powered by Microsoft Graph.|
 |[Point of Interest Skill](/docs/reference/skills/pointofinterest.md)|Find points of interest and directions. Powered by Azure Maps and FourSquare.|
 |[Automotive Skill](/docs/reference/skills/automotive.md)|Industry-vertical Skill for showcasing enabling car feature control.|
+|[Phone Skill](/docs/reference/skills/phone.md)|Make phone calls. Powered by Microsoft Graph and Google.|
 |[Experimental Skills](/docs/reference/skills/experimental.md)|News, Search, Restaurant Booking and Weather.|
 
 ## Adding your Skill to an assistant
