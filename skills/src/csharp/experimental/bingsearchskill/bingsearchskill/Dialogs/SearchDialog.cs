@@ -66,9 +66,8 @@ namespace BingSearchSkill.Dialogs
             var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("X-Uqu-RefererType", "1");
             httpClient.DefaultRequestHeaders.Add("X-Uqu-ResponseFormat", "0");
-            httpClient.DefaultRequestHeaders.Add("opal-sessionid", "F96b98c24e25b152cf3790");
-            httpClient.DefaultRequestHeaders.Add("X-Search-ClientId", "darrenj");
-            httpClient.DefaultRequestHeaders.Add("muid", "1234");
+            httpClient.DefaultRequestHeaders.Add("opal-sessionid", stepContext.Context.Activity.Conversation.Id);
+            httpClient.DefaultRequestHeaders.Add("X-Search-ClientId", stepContext.Context.Activity.From.Id);
 
             try
             {
