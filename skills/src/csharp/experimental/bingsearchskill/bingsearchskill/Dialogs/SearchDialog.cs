@@ -1,23 +1,24 @@
-﻿using Microsoft.Bot.Builder;
-using Microsoft.Bot.Builder.Dialogs;
-using Microsoft.Bot.Builder.Solutions.Responses;
-using BingSearchSkill.Models;
-using BingSearchSkill.Responses.Search;
-using BingSearchSkill.Services;
-using System.Collections.Specialized;
+﻿using System;
+using System.Net;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using BingSearchSkill.Models.Cards;
+using BingSearchSkill.Models;
+using BingSearchSkill.Responses.Main;
+using BingSearchSkill.Responses.Search;
+using BingSearchSkill.Services;
+using HtmlAgilityPack;
+using Microsoft.Bot.Builder;
+using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Solutions.Responses;
 using Microsoft.Bot.Schema;
-using System;
-using BingSearchSkill.Utilities;
+using Newtonsoft.Json;
 
 namespace BingSearchSkill.Dialogs
 {
     public class SearchDialog : SkillDialogBase
     {
-        private const string BingSearchApiKeyIndex = "BingSearchKey";
-        private const string BingAnswerSearchApiKeyIndex = "BingAnswerSearchKey";
         private BotServices _services;
         private IStatePropertyAccessor<SkillState> _stateAccessor;
 
@@ -41,7 +42,6 @@ namespace BingSearchSkill.Dialogs
             };
 
             AddDialog(new WaterfallDialog(nameof(SearchDialog), sample));
-            AddDialog(new TextPrompt(DialogIds.NamePrompt));
 
             InitialDialogId = nameof(SearchDialog);
         }
@@ -49,13 +49,6 @@ namespace BingSearchSkill.Dialogs
         private async Task<DialogTurnResult> PromptForQuestion(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             GetEntityFromLuis(stepContext);
-
-            var state = await _stateAccessor.GetAsync(stepContext.Context);
-            //if (string.IsNullOrWhiteSpace(state.SearchEntityName))
-            //{
-            //    var prompt = ResponseManager.GetResponse(SearchResponses.AskEntityPrompt);
-            //    return await stepContext.PromptAsync(DialogIds.NamePrompt, new PromptOptions { Prompt = prompt });
-            //}
 
             return await stepContext.NextAsync();
         }
@@ -65,97 +58,86 @@ namespace BingSearchSkill.Dialogs
             var state = await _stateAccessor.GetAsync(stepContext.Context);
             var intent = state.LuisResult.TopIntent().intent;
 
-            GetEntityFromLuis(stepContext);
-            var userInput = string.Empty;
-            if (string.IsNullOrWhiteSpace(state.SearchEntityName))
+            // Default
+            Activity responseActivity = ResponseManager.GetResponse(SearchResponses.NoResultPrompt);
+
+            var userInput = state.LuisResult.Text;
+
+            var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("X-Uqu-RefererType", "1");
+            httpClient.DefaultRequestHeaders.Add("X-Uqu-ResponseFormat", "0");
+            httpClient.DefaultRequestHeaders.Add("opal-sessionid", "F96b98c24e25b152cf3790");
+            httpClient.DefaultRequestHeaders.Add("X-Search-ClientId", "darrenj");
+            httpClient.DefaultRequestHeaders.Add("muid", "1234");
+
+            try
             {
-                stepContext.Context.Activity.Properties.TryGetValue("OriginText", out var content);
-                userInput = content != null ? content.ToString() : stepContext.Context.Activity.Text;
-
-                state.SearchEntityName = userInput;
-                state.SearchEntityType = SearchResultModel.EntityType.Unknown;
-            }
-
-            var bingSearchKey = Settings.Properties[BingSearchApiKeyIndex] ?? throw new Exception("The BingSearchKey must be provided to use this dialog. Please provide this key in your Skill Configuration.");
-            var bingAnswerSearchKey = Settings.Properties[BingAnswerSearchApiKeyIndex] ?? throw new Exception("The BingSearchKey must be provided to use this dialog. Please provide this key in your Skill Configuration.");
-            var client = new BingSearchClient(bingSearchKey, bingAnswerSearchKey);
-            var entitiesResult = await client.GetSearchResult(state.SearchEntityName, state.SearchEntityType);
-
-            Activity prompt = null;
-            if (entitiesResult != null && entitiesResult.Count > 0)
-            {
-                var tokens = new StringDictionary
+                string bingUrl;
+                if (Settings.Properties.TryGetValue("OpalUri", out bingUrl))
                 {
-                    { "Name", entitiesResult[0].Name },
-                };
-
-                if (entitiesResult[0].Type == SearchResultModel.EntityType.Movie)
-                {
-                    var movieInfo = MovieHelper.GetMovieInfoFromUrl(entitiesResult[0].Url);
-                    tokens["Name"] = movieInfo.Name;
-                    var movieData = new MovieCardData()
+                    // Retrieve Bing Response
+                    var httpResponse = await httpClient.GetAsync(string.Format(bingUrl, userInput));
+                    if (httpResponse.IsSuccessStatusCode)
                     {
-                        Name = movieInfo.Name,
-                        Description = movieInfo.Description,
-                        Image = movieInfo.Image,
-                        Rating = $"{movieInfo.Rating}",
-                        GenreArray = string.Join(" ▪ ", movieInfo.Genre),
-                        ContentRating = movieInfo.ContentRating,
-                        Duration = movieInfo.Duration,
-                        Year = movieInfo.Year,
-                    };
+                        // Response is an HTML document. We need to parse and find the root level script node (only one) and then parse the contents to find the JSON payload.
+                        // Excessive debugging to help triage issues in initial testing only!
 
-                    tokens.Add("Speak", movieInfo.Description);
+                        HtmlDocument doc = new HtmlDocument();
+                        doc.Load(await httpResponse.Content.ReadAsStreamAsync());
 
-                    prompt = ResponseManager.GetCardResponse(
-                                SearchResponses.EntityKnowledge,
-                                new Card(GetDivergedCardName(stepContext.Context, "MovieCard"), movieData),
-                                tokens);
-                }
-                else if (entitiesResult[0].Type == SearchResultModel.EntityType.Person)
-                {
-                    var celebrityData = new PersonCardData()
-                    {
-                        Name = entitiesResult[0].Name,
-                        Description = entitiesResult[0].Description,
-                        IconPath = entitiesResult[0].ImageUrl,
-                        Link_View = entitiesResult[0].Url,
-                        EntityTypeDisplayHint = entitiesResult[0].EntityTypeDisplayHint
-                    };
-
-                    tokens.Add("Speak", entitiesResult[0].Description);
-
-                    prompt = ResponseManager.GetCardResponse(
-                                SearchResponses.EntityKnowledge,
-                                new Card(GetDivergedCardName(stepContext.Context, "PersonCard"), celebrityData),
-                                tokens);
-                }
-                else
-                {
-                    if (userInput.Contains("president"))
-                    {
-                        prompt = ResponseManager.GetResponse(SearchResponses.AnswerSearchResultPrompt, new StringDictionary()
+                        HtmlNodeCollection links = doc.DocumentNode.SelectNodes("/script");
+                        if (links != null && links.Count == 1)
                         {
-                            { "Answer", "Sorry I do not know this answer yet."},
-                            { "Url", "www.bing.com" }
-                        });
+                            // The JSON payload is sandwiched between two single quotes within the identified script element.
+                            var parts = links[0].InnerText.Split('\'');
+                            if (parts.Length == 3)
+                            {
+                                // Middle part has the JSON payload. We need to HTML decode and Unescape
+                                dynamic jsonPayload = JsonConvert.DeserializeObject(Regex.Unescape(WebUtility.HtmlDecode(parts[1])));
+
+                                if (jsonPayload != null)
+                                {
+                                    if (jsonPayload.messageType == "spokenResponse")
+                                    {
+                                        responseActivity.Text = responseActivity.Speak = jsonPayload.fallbackSpokenText;
+                                    }
+                                    else
+                                    {
+                                        TelemetryClient.TrackTrace($"Question:{userInput} didn't get a spokenResponse from Bing", Severity.Error, null);
+                                    }
+                                }
+                                else
+                                {
+                                    TelemetryClient.TrackTrace($"Question:{userInput} didn't result in a JSON response from Bing (JSON deserialization error)", Severity.Error, null);
+                                }
+                            }
+                            else
+                            {
+                                TelemetryClient.TrackTrace($"Question:{userInput} didn't result in a JSON response from Bing (no JSON tag found)", Severity.Error, null);
+                            }
+                        }
+                        else
+                        {
+                            TelemetryClient.TrackTrace($"Question:{userInput} didn't result in a JSON response from Bing (No root script tag found)", Severity.Error, null);
+                        }
                     }
                     else
                     {
-                        prompt = ResponseManager.GetResponse(SearchResponses.AnswerSearchResultPrompt, new StringDictionary()
-                        {
-                            { "Answer", entitiesResult[0].Description},
-                            { "Url", entitiesResult[0].Url}
-                        });
+                        TelemetryClient.TrackTrace($"Question:{userInput} generated an HTTP failure when talking to Bing: {httpResponse.StatusCode}", Severity.Error, null);
                     }
                 }
+                else
+                {
+                    throw new Exception("OpalUri not provided in configuration.");
+                }
             }
-            else
+            catch (Exception e)
             {
-                prompt = ResponseManager.GetResponse(SearchResponses.NoResultPrompt);
+                TelemetryClient.TrackException(e);
+                responseActivity = ResponseManager.GetResponse(MainResponses.ErrorMessage);
             }
 
-            await stepContext.Context.SendActivityAsync(prompt);
+            await stepContext.Context.SendActivityAsync(responseActivity);
             return await stepContext.NextAsync();
         }
 
@@ -195,7 +177,6 @@ namespace BingSearchSkill.Dialogs
 
         private class DialogIds
         {
-            public const string NamePrompt = "namePrompt";
         }
     }
 }

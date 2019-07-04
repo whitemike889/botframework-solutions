@@ -2,8 +2,8 @@
   "AskEntityPrompt": {
     "replies": [
       {
-        "text": "What do you want to search? You can say things like 'who is bill gates' or 'how is jurassic park'.",
-        "speak": "What do you want to search? You can say things like 'who is bill gates' or 'how is jurassic park'."
+        "text": "What do you want to search? You can say things like 'who is bill gates' or 'what is jurassic park'.",
+        "speak": "What do you want to search? You can say things like 'who is bill gates' or 'what is jurassic park'."
       }
     ],
     "inputHint": "expectingInput"
@@ -20,8 +20,8 @@
   "NoResultPrompt": {
     "replies": [
       {
-        "text": "Sorry, seems we didn't find anything. I suggest you check out on www.bing.com.",
-        "speak": "Sorry, seems we didn't find anything. I suggest you check out on www.bing.com."
+        "text": "Sorry, seems we couldn't find anything. I suggest you check out www.bing.com.",
+        "speak": "Sorry, seems we couldn't find anything. I suggest you check out www.bing.com."
       }
     ],
     "inputHint": "acceptingInput"

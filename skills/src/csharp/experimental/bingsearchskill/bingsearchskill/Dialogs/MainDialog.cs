@@ -66,6 +66,8 @@ namespace BingSearchSkill.Dialogs
             var locale = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
             var localeConfig = _services.CognitiveModelSets[locale];
 
+            var state = await _stateAccessor.GetAsync(dc.Context, () => new SkillState());
+
             // Populate state from SkillContext slots as required 
             await PopulateStateFromSkillContext(dc.Context);
 
@@ -81,22 +83,16 @@ namespace BingSearchSkill.Dialogs
                 var turnResult = EndOfTurn;
                 var result = await luisService.RecognizeAsync<BingSearchSkillLuis>(dc.Context, CancellationToken.None);
                 var intent = result?.TopIntent().intent;
+                state.LuisResult = result;
 
                 switch (intent)
                 {
                     case BingSearchSkillLuis.Intent.GetCelebrityInfo:
                     case BingSearchSkillLuis.Intent.SearchMovieInfo:
                     case BingSearchSkillLuis.Intent.None:
-                        {
-                            turnResult = await dc.BeginDialogAsync(nameof(SearchDialog));
-                            break;
-                        }
-
                     default:
                         {
-                            // intent was identified but not yet implemented
-                            await dc.Context.SendActivityAsync(_responseManager.GetResponse(MainResponses.FeatureNotAvailable));
-                            turnResult = new DialogTurnResult(DialogTurnStatus.Complete);
+                            turnResult = await dc.BeginDialogAsync(nameof(SearchDialog));
                             break;
                         }
                 }

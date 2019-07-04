@@ -2,21 +2,21 @@
   "WelcomeMessage": {
     "replies": [
       {
-        "text": "Welcome! I can search movie info, celebrity info for you. You can say 'who is Bill Gates' or 'how is Titanic' to start query.",
-        "speak": "Welcome! I can search movie info, celebrity info for you. You can say 'who is Bill Gates' or 'how is Titanic' to start query."
+        "text": "Welcome! I can search Bing facts for you. You can say 'who is Bill Gates' or 'Why is the Sky Blue'",
+        "speak": "Welcome! I can search Bing facts for you. You can say 'who is Bill Gates' or 'Why is the Sky Blue'"
       }
     ],
-    "suggestedActions": [],
+    "suggestedActions": [ "who is bill gates", "what is the population of the uk", "what is the weather like in london" ],
     "inputHint": "acceptingInput"
   },
   "HelpMessage": {
     "replies": [
       {
-        "text": "You can say 'who is Bill Gates' or 'how is Titanic' to start query.",
-        "speak": "You can say 'who is Bill Gates' or 'how is Titanic' to start query."
+        "text": "You can say 'who is Bill Gates' or 'Why is the Sky Blue'",
+        "speak": "You can say 'who is Bill Gates' or 'Why is the Sky Blue'"
       }
     ],
-    "suggestedActions": [],
+    "suggestedActions": [ "who is bill gates", "what is the population of the uk", "what is the weather like in london" ],
     "inputHint": "acceptingInput"
   },
   "GreetingMessage": {
@@ -76,6 +76,15 @@
       {
         "text": "Ok, let's start over.",
         "speak": "Ok, let's start over."
+      }
+    ],
+    "inputHint": "acceptingInput"
+  },
+  "ErrorMessage": {
+    "replies": [
+      {
+        "text": "Sorry, something went wrong.",
+        "speak": "Sorry, something went wrong."
       }
     ],
     "inputHint": "acceptingInput"

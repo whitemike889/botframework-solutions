@@ -54,13 +54,11 @@ namespace BingSearchSkill.Dialogs
 
         protected override async Task<DialogTurnResult> OnBeginDialogAsync(DialogContext dc, object options, CancellationToken cancellationToken = default(CancellationToken))
         {
-            await GetLuisResult(dc);
             return await base.OnBeginDialogAsync(dc, options, cancellationToken);
         }
 
         protected override async Task<DialogTurnResult> OnContinueDialogAsync(DialogContext dc, CancellationToken cancellationToken = default(CancellationToken))
         {
-            await GetLuisResult(dc);
             return await base.OnContinueDialogAsync(dc, cancellationToken);
         }
 
@@ -135,25 +133,7 @@ namespace BingSearchSkill.Dialogs
             {
                 return Task.FromResult(false);
             }
-        }
-
-        // Helpers
-        protected async Task GetLuisResult(DialogContext dc)
-        {
-            if (dc.Context.Activity.Type == ActivityTypes.Message)
-            {
-                var state = await StateAccessor.GetAsync(dc.Context, () => new SkillState());
-
-                // Get luis service for current locale
-                var locale = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-                var localeConfig = Services.CognitiveModelSets[locale];
-                var luisService = localeConfig.LuisServices["BingSearchSkill"];
-
-                // Get intent and entities for activity
-                var result = await luisService.RecognizeAsync<BingSearchSkillLuis>(dc.Context, CancellationToken.None);
-                state.LuisResult = result;
-            }
-        }
+        }   
 
         // This method is called by any waterfall step that throws an exception to ensure consistency
         protected async Task HandleDialogExceptions(WaterfallStepContext sc, Exception ex)
