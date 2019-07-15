@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using BingSearchSkill.Models;
-using BingSearchSkill.Responses.Main;
 using BingSearchSkill.Responses.Search;
 using BingSearchSkill.Services;
 using HtmlAgilityPack;
@@ -36,7 +35,6 @@ namespace BingSearchSkill.Dialogs
 
             var sample = new WaterfallStep[]
             {
-                PromptForQuestion,
                 ShowResult,
                 End,
             };
@@ -46,41 +44,41 @@ namespace BingSearchSkill.Dialogs
             InitialDialogId = nameof(SearchDialog);
         }
 
-        private async Task<DialogTurnResult> PromptForQuestion(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            GetEntityFromLuis(stepContext);
-
-            return await stepContext.NextAsync();
-        }
-
         private async Task<DialogTurnResult> ShowResult(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
+            const string LocationHeader = "lat={0},long={1},re=100.0000,disp=%20";
+
             var state = await _stateAccessor.GetAsync(stepContext.Context);
-            var intent = state.LuisResult.TopIntent().intent;
+            var userInput = stepContext.Context.Activity.Text;
 
             // Default
             Activity responseActivity = ResponseManager.GetResponse(SearchResponses.NoResultPrompt);
-
-            var userInput = state.LuisResult.Text;
-
-            var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("X-Uqu-RefererType", "1");
-            httpClient.DefaultRequestHeaders.Add("X-Uqu-ResponseFormat", "0");
-            httpClient.DefaultRequestHeaders.Add("opal-sessionid", stepContext.Context.Activity.Conversation.Id);
-            httpClient.DefaultRequestHeaders.Add("X-Search-ClientId", stepContext.Context.Activity.From.Id);
+            bool success = false;
 
             try
             {
-                string bingUrl;
-                if (Settings.Properties.TryGetValue("OpalUri", out bingUrl))
+                var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("AgentForCar");
+                httpClient.DefaultRequestHeaders.Add("X-Uqu-RefererType", "1");
+                httpClient.DefaultRequestHeaders.Add("X-Uqu-ResponseFormat", "0");
+                httpClient.DefaultRequestHeaders.Add("opal-sessionid", stepContext.Context.Activity.Conversation.Id);
+                httpClient.DefaultRequestHeaders.Add("X-Search-ClientId", stepContext.Context.Activity.From.Id);
+                httpClient.DefaultRequestHeaders.Add("X-Search-Market", stepContext.Context.Activity.Locale);
+
+                // If we have a location then provide it to tailor the results.
+                if (state.CurrentCoordinates != null)
+                {
+                    httpClient.DefaultRequestHeaders.Add("X-Search-Location", string.Format(LocationHeader, state.CurrentCoordinates.Latitude, state.CurrentCoordinates.Longitude));
+                }
+
+                if (!string.IsNullOrEmpty(Settings.OpalUri))
                 {
                     // Retrieve Bing Response
-                    var httpResponse = await httpClient.GetAsync(string.Format(bingUrl, userInput));
+                    var httpResponse = await httpClient.GetAsync(string.Format(Settings.OpalUri, userInput));
                     if (httpResponse.IsSuccessStatusCode)
                     {
                         // Response is an HTML document. We need to parse and find the root level script node (only one) and then parse the contents to find the JSON payload.
                         // Excessive debugging to help triage issues in initial testing only!
-
                         HtmlDocument doc = new HtmlDocument();
                         doc.Load(await httpResponse.Content.ReadAsStreamAsync());
 
@@ -99,6 +97,7 @@ namespace BingSearchSkill.Dialogs
                                     if (jsonPayload.messageType == "spokenResponse")
                                     {
                                         responseActivity.Text = responseActivity.Speak = jsonPayload.fallbackSpokenText;
+                                        success = true;
                                     }
                                     else
                                     {
@@ -127,17 +126,23 @@ namespace BingSearchSkill.Dialogs
                 }
                 else
                 {
-                    throw new Exception("OpalUri not provided in configuration.");
+                    TelemetryClient.TrackTrace("No OpalUri configuration", Severity.Error, null);
                 }
             }
             catch (Exception e)
             {
                 TelemetryClient.TrackException(e);
-                responseActivity = ResponseManager.GetResponse(MainResponses.ErrorMessage);
             }
 
-            await stepContext.Context.SendActivityAsync(responseActivity);
-            return await stepContext.NextAsync();
+            if (success)
+            {
+                await stepContext.Context.SendActivityAsync(responseActivity);
+                return await stepContext.NextAsync();
+            }
+            else
+            {
+                return await stepContext.EndDialogAsync("NoBingAnswerFound");
+            }
         }
 
         private async Task<DialogTurnResult> End(WaterfallStepContext stepContext, CancellationToken cancellationToken)
@@ -146,32 +151,6 @@ namespace BingSearchSkill.Dialogs
             state.Clear();
 
             return await stepContext.EndDialogAsync();
-        }
-
-        private async void GetEntityFromLuis(WaterfallStepContext stepContext)
-        {
-            var state = await _stateAccessor.GetAsync(stepContext.Context);
-
-            if (state.LuisResult.Entities.MovieTitle != null)
-            {
-                state.SearchEntityName = state.LuisResult.Entities.MovieTitle[0];
-                state.SearchEntityType = SearchResultModel.EntityType.Movie;
-            }
-            else if (state.LuisResult.Entities.MovieTitlePatten != null)
-            {
-                state.SearchEntityName = state.LuisResult.Entities.MovieTitlePatten[0];
-                state.SearchEntityType = SearchResultModel.EntityType.Movie;
-            }
-            else if (state.LuisResult.Entities.CelebrityName != null)
-            {
-                state.SearchEntityName = state.LuisResult.Entities.CelebrityName[0];
-                state.SearchEntityType = SearchResultModel.EntityType.Person;
-            }
-            else if (state.LuisResult.Entities.CelebrityNamePatten != null)
-            {
-                state.SearchEntityName = state.LuisResult.Entities.CelebrityNamePatten[0];
-                state.SearchEntityType = SearchResultModel.EntityType.Person;
-            }
         }
 
         private class DialogIds

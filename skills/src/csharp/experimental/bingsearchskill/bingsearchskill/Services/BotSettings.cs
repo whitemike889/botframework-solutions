@@ -6,5 +6,6 @@ namespace BingSearchSkill.Services
 {
     public class BotSettings : BotSettingsBase
     {
+        public string OpalUri { get; set; }
     }
 }

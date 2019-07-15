@@ -14,6 +14,8 @@ namespace BingSearchSkill.Models
 
         public string Token { get; internal set; }
 
+        public LatLng CurrentCoordinates { get; set; }
+
         public BingSearchSkillLuis LuisResult { get; internal set; }
 
         public string SearchEntityName { get; set; }

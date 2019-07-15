@@ -66,10 +66,9 @@ namespace BingSearchSkill.Dialogs
             var locale = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
             var localeConfig = _services.CognitiveModelSets[locale];
 
-            var state = await _stateAccessor.GetAsync(dc.Context, () => new SkillState());
+            await PopulateStateFromSemanticAction(dc.Context);
 
-            // Populate state from SkillContext slots as required 
-            await PopulateStateFromSkillContext(dc.Context);
+            var state = await _stateAccessor.GetAsync(dc.Context, () => new SkillState());
 
             // Get skill LUIS model from configuration
             localeConfig.LuisServices.TryGetValue("BingSearchSkill", out var luisService);
@@ -83,16 +82,22 @@ namespace BingSearchSkill.Dialogs
                 var turnResult = EndOfTurn;
                 var result = await luisService.RecognizeAsync<BingSearchSkillLuis>(dc.Context, CancellationToken.None);
                 var intent = result?.TopIntent().intent;
-                state.LuisResult = result;
 
                 switch (intent)
                 {
                     case BingSearchSkillLuis.Intent.GetCelebrityInfo:
                     case BingSearchSkillLuis.Intent.SearchMovieInfo:
                     case BingSearchSkillLuis.Intent.None:
-                    default:
                         {
                             turnResult = await dc.BeginDialogAsync(nameof(SearchDialog));
+                            break;
+                        }
+
+                    default:
+                        {
+                            // intent was identified but not yet implemented
+                            await dc.Context.SendActivityAsync(_responseManager.GetResponse(MainResponses.FeatureNotAvailable));
+                            turnResult = new DialogTurnResult(DialogTurnStatus.Complete);
                             break;
                         }
                 }
@@ -122,6 +127,34 @@ namespace BingSearchSkill.Dialogs
         {
             switch (dc.Context.Activity.Name)
             {
+                case Events.Location:
+                    {
+                        var state = await _stateAccessor.GetAsync(dc.Context, () => new SkillState());
+
+                        // Test trigger with
+                        // /event:{ "Name": "Location", "Value": "34.05222222222222,-118.2427777777777" }
+                        var value = dc.Context.Activity.Value.ToString();
+
+                        if (!string.IsNullOrEmpty(value))
+                        {
+                            var coords = value.Split(',');
+                            if (coords.Length == 2)
+                            {
+                                if (double.TryParse(coords[0], out var lat) && double.TryParse(coords[1], out var lng))
+                                {
+                                    var coordinates = new LatLng
+                                    {
+                                        Latitude = lat,
+                                        Longitude = lng,
+                                    };
+                                    state.CurrentCoordinates = coordinates;
+                                }
+                            }
+                        }
+
+                        break;
+                    }
+
                 case Events.SkillBeginEvent:
                     {
                         var state = await _stateAccessor.GetAsync(dc.Context, () => new SkillState());
@@ -204,6 +237,33 @@ namespace BingSearchSkill.Dialogs
             return result;
         }
 
+        private async Task PopulateStateFromSemanticAction(ITurnContext context)
+        {
+            var activity = context.Activity;
+            var semanticAction = activity.SemanticAction;
+            if (semanticAction != null && semanticAction.Entities.ContainsKey("location"))
+            {
+                var location = semanticAction.Entities["location"];
+                var locationObj = location.Properties["location"].ToString();
+
+                var coords = locationObj.Split(',');
+                if (coords.Length == 2)
+                {
+                    if (double.TryParse(coords[0], out var lat) && double.TryParse(coords[1], out var lng))
+                    {
+                        var coordinates = new LatLng
+                        {
+                            Latitude = lat,
+                            Longitude = lng,
+                        };
+
+                        var state = await _stateAccessor.GetAsync(context, () => new SkillState());
+                        state.CurrentCoordinates = coordinates;
+                    }
+                }
+            }
+        }
+
         private async Task<InterruptionAction> OnCancel(DialogContext dc)
         {
             await dc.Context.SendActivityAsync(_responseManager.GetResponse(MainResponses.CancelMessage));
@@ -266,6 +326,7 @@ namespace BingSearchSkill.Dialogs
         {
             public const string TokenResponseEvent = "tokens/response";
             public const string SkillBeginEvent = "skillBegin";
+            public const string Location = "Location";
         }
     }
 }
