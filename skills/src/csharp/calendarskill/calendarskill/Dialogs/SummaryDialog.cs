@@ -142,9 +142,9 @@ namespace CalendarSkill.Dialogs
         {
             return new LuisRecognizer(new LuisApplication()
             {
-                Endpoint = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/807cd523-34cb-4911-b149-cdcb58f661cc?verbose=true&timezoneOffset=-360&subscription-key=80d731206676475bb03d30e3bc2ee07e&q=",//Configuration["LuisAPIHostName"],
-                EndpointKey = "80d731206676475bb03d30e3bc2ee07e", //Configuration["LuisAPIKey"],
-                ApplicationId = "807cd523-34cb-4911-b149-cdcb58f661cc",// Configuration["LuisAppId"]
+                Endpoint = "",
+                EndpointKey = "",
+                ApplicationId = "",
             });
         }
 

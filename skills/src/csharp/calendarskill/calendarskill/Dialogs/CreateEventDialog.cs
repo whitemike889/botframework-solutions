@@ -27,6 +27,7 @@ using Microsoft.Bot.Builder.Solutions.Resources;
 using Microsoft.Bot.Builder.Solutions.Responses;
 using Microsoft.Bot.Builder.Solutions.Util;
 using Microsoft.Bot.Connector.Authentication;
+using Microsoft.Bot.Schema;
 using Microsoft.Recognizers.Text.DateTime;
 using static CalendarSkill.Models.CreateEventStateModel;
 
@@ -34,7 +35,6 @@ namespace CalendarSkill.Dialogs
 {
     public class CreateEventDialog : CalendarSkillDialogBase
     {
-        private TemplateEngine _lgEngine;
         private ResourceMultiLanguageGenerator _lgMultiLangEngine;
 
         public CreateEventDialog(
@@ -87,7 +87,7 @@ namespace CalendarSkill.Dialogs
 
             var createEvent = new WaterfallStep[]
             {
-                InitCreateEventDialogState,
+                SaveCreateEventDialogState,
                 GetAuthToken,
                 AfterGetAuthToken,
                 CollectAttendees,
@@ -205,11 +205,11 @@ namespace CalendarSkill.Dialogs
                         return await sc.EndDialogAsync();
                     }
 
-                    var userNameString = dialogState.FindContactInfor.Contacts.ToSpeechString(CommonStrings.And, li => $"{li.DisplayName ?? li.Address}: {li.Address}");
-                    var data = new StringDictionary() { { "UserName", userNameString } };
-                    var prompt = ResponseManager.GetResponse(CreateEventResponses.NoTitle, data);
+                    var data = new { participants = dialogState.FindContactInfor.Contacts };
+                    var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoTitle]", data);
+                    var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
 
-                    return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = prompt }, cancellationToken);
+                    return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = (Activity)prompt }, cancellationToken);
                 }
                 else
                 {
@@ -261,9 +261,12 @@ namespace CalendarSkill.Dialogs
                     }
                 }
 
+                var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoContent]", null);
+                var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+
                 if (string.IsNullOrEmpty(dialogState.Content) && (!(dialogState.CreateHasDetail && isContentSkipByDefault.GetValueOrDefault()) || dialogState.RecreateState == RecreateEventState.Content))
                 {
-                    return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = ResponseManager.GetResponse(CreateEventResponses.NoContent) }, cancellationToken);
+                    return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = (Activity)prompt }, cancellationToken);
                 }
                 else
                 {
@@ -430,16 +433,20 @@ namespace CalendarSkill.Dialogs
                     var result = (CalendarSkillDialogOptions)sc.Result;
                     sc.State.Dialog[CalendarStateKey] = result.DialogState;
                 }
+
                 bool? isLocationSkipByDefault = false;
                 isLocationSkipByDefault = Settings.DefaultValue?.CreateMeeting?.First(item => item.Name == "EventLocation")?.IsSkipByDefault;
-        
+
                 var skillOptions = (CalendarSkillDialogOptions)sc.Options;
                 var userState = await CalendarStateAccessor.GetAsync(sc.Context);
                 var dialogState = (CreateEventDialogState)sc.State.Dialog[CalendarStateKey];
 
-                 if (dialogState.Location == null && (!(dialogState.CreateHasDetail && isLocationSkipByDefault.GetValueOrDefault()) || dialogState.RecreateState == RecreateEventState.Location))
+                var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoLocation]", null);
+                var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+
+                if (string.IsNullOrEmpty(dialogState.Location) && (!(dialogState.CreateHasDetail && isLocationSkipByDefault.GetValueOrDefault()) || dialogState.RecreateState == RecreateEventState.Location))
                 {
-                    return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = ResponseManager.GetResponse(CreateEventResponses.NoLocation) }, cancellationToken);
+                    return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = (Activity)prompt }, cancellationToken);
                 }
                 else
                 {
@@ -471,17 +478,17 @@ namespace CalendarSkill.Dialogs
                 var dialogState = (CreateEventDialogState)sc.State.Dialog[CalendarStateKey];
 
                 // workaroud for getting new added contacts
-                foreach (var item in userState.CacheAttendees)
-                {
-                    if (!dialogState.FindContactInfor.Contacts.Contains(item))
-                    {
-                        dialogState.FindContactInfor.Contacts.Add(item);
-                    }
+                //foreach (var item in userState.CacheAttendees)
+                //{
+                //    if (!dialogState.FindContactInfor.Contacts.Contains(item))
+                //    {
+                //        dialogState.FindContactInfor.Contacts.Add(item);
+                //    }
 
-                    sc.State.Dialog[CalendarStateKey] = dialogState;
-                }
+                //    sc.State.Dialog[CalendarStateKey] = dialogState;
+                //}
 
-                if (dialogState.Location == null && sc.Result != null && (!(dialogState.CreateHasDetail && isLocationSkipByDefault.GetValueOrDefault()) || dialogState.RecreateState == RecreateEventState.Location))
+                if (string.IsNullOrEmpty(dialogState.Location) && sc.Result != null && (!(dialogState.CreateHasDetail && isLocationSkipByDefault.GetValueOrDefault()) || dialogState.RecreateState == RecreateEventState.Location))
                 {
                     sc.Context.Activity.Properties.TryGetValue("OriginText", out var content);
                     var luisResult = userState.LuisResult;
@@ -519,60 +526,27 @@ namespace CalendarSkill.Dialogs
                     ContentPreview = dialogState.Content
                 };
 
-                var attendeeConfirmTextString = string.Empty;
-                if (dialogState.FindContactInfor.Contacts.Count > 0)
+                var attendeePhotoList = new List<string>();
+
+                foreach (var attendee in dialogState.FindContactInfor.Contacts)
                 {
-                    var attendeeConfirmResponse = ResponseManager.GetResponse(CreateEventResponses.ConfirmCreateAttendees, new StringDictionary()
-                    {
-                        { "Attendees", DisplayHelper.ToDisplayParticipantsStringSummary(dialogState.FindContactInfor.Contacts, 5) }
-                    });
-                    attendeeConfirmTextString = attendeeConfirmResponse.Text;
+                    attendeePhotoList.Add(await GetUserPhotoUrlAsync(sc.Context, attendee));
                 }
 
-                var subjectConfirmString = string.Empty;
-                if (!string.IsNullOrEmpty(dialogState.Title))
+                var data = new
                 {
-                    var subjectConfirmResponse = ResponseManager.GetResponse(CreateEventResponses.ConfirmCreateSubject, new StringDictionary()
-                    {
-                        { "Subject", string.IsNullOrEmpty(dialogState.Title) ? CalendarCommonStrings.Empty : dialogState.Title }
-                    });
-                    subjectConfirmString = subjectConfirmResponse.Text;
-                }
-
-                var locationConfirmString = string.Empty;
-                if (!string.IsNullOrEmpty(dialogState.Location))
-                {
-                    var subjectConfirmResponse = ResponseManager.GetResponse(CreateEventResponses.ConfirmCreateLocation, new StringDictionary()
-                    {
-                        { "Location", string.IsNullOrEmpty(dialogState.Location) ? CalendarCommonStrings.Empty : dialogState.Location },
-                    });
-                    locationConfirmString = subjectConfirmResponse.Text;
-                }
-
-                var contentConfirmString = string.Empty;
-                if (!string.IsNullOrEmpty(dialogState.Content))
-                {
-                    var contentConfirmResponse = ResponseManager.GetResponse(CreateEventResponses.ConfirmCreateContent, new StringDictionary()
-                    {
-                        { "Content", string.IsNullOrEmpty(dialogState.Content) ? CalendarCommonStrings.Empty : dialogState.Content },
-                    });
-                    contentConfirmString = contentConfirmResponse.Text;
-                }
-
-                var startDateTimeInUserTimeZone = TimeConverter.ConvertUtcToUserTime(dialogState.StartDateTime.Value, userState.GetUserTimeZone());
-                var endDateTimeInUserTimeZone = TimeConverter.ConvertUtcToUserTime(dialogState.EndDateTime.Value, userState.GetUserTimeZone());
-                var tokens = new StringDictionary
-                {
-                    { "AttendeesConfirm", attendeeConfirmTextString },
-                    { "Date", startDateTimeInUserTimeZone.ToSpeechDateString(false) },
-                    { "Time", startDateTimeInUserTimeZone.ToSpeechTimeString(false) },
-                    { "EndTime", endDateTimeInUserTimeZone.ToSpeechTimeString(false) },
-                    { "SubjectConfirm", subjectConfirmString },
-                    { "LocationConfirm", locationConfirmString },
-                    { "ContentConfirm", contentConfirmString },
+                    startDateTime = dialogState.StartDateTime.Value,
+                    endDateTime = dialogState.EndDateTime.Value,
+                    timezone = userState.GetUserTimeZone().Id,
+                    attendees = dialogState.FindContactInfor.Contacts,
+                    attendeePhotoList,
+                    subject = dialogState.Title,
+                    location = dialogState.Location,
+                    content = dialogState.Content
                 };
 
-                var prompt = await GetDetailMeetingResponseAsync(sc, newEvent, CreateEventResponses.ConfirmCreate, tokens);
+                var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[ConfirmCreate]", data);
+                var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
 
                 await sc.Context.SendActivityAsync(prompt);
 
@@ -597,10 +571,15 @@ namespace CalendarSkill.Dialogs
         {
             try
             {
+                var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[ConfirmCreatePrompt]", null);
+                var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+                var rePromptLGResult = await _lgMultiLangEngine.Generate(sc.Context, "[ConfirmCreateFailed]", null);
+                var retryPrompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, rePromptLGResult, null);
+
                 return await sc.PromptAsync(Actions.TakeFurtherAction, new PromptOptions
                 {
-                    Prompt = ResponseManager.GetResponse(CreateEventResponses.ConfirmCreatePrompt),
-                    RetryPrompt = ResponseManager.GetResponse(CreateEventResponses.ConfirmCreateFailed)
+                    Prompt = (Activity)prompt,
+                    RetryPrompt = (Activity)retryPrompt
                 }, cancellationToken);
             }
             catch (Exception ex)
@@ -637,21 +616,37 @@ namespace CalendarSkill.Dialogs
                     var calendarService = ServiceManager.InitCalendarService(userState.APIToken, userState.EventSource);
                     if (await calendarService.CreateEvent(newEvent) != null)
                     {
-                        var tokens = new StringDictionary
+                        var attendeePhotoList = new List<string>();
+
+                        foreach (var attendee in dialogState.FindContactInfor.Contacts)
                         {
-                            { "Subject", dialogState.Title },
+                            attendeePhotoList.Add(await GetUserPhotoUrlAsync(sc.Context, attendee));
+                        }
+
+                        var data = new
+                        {
+                            startDateTime = dialogState.StartDateTime.Value,
+                            endDateTime = dialogState.EndDateTime.Value,
+                            timezone = userState.GetUserTimeZone().Id,
+                            attendees = dialogState.FindContactInfor.Contacts,
+                            attendeePhotoList,
+                            subject = dialogState.Title,
+                            location = dialogState.Location,
+                            content = dialogState.Content
                         };
+
+                        var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[EventCreated]", data);
+                        var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
 
                         newEvent.ContentPreview = dialogState.Content;
 
-                        var replyMessage = await GetDetailMeetingResponseAsync(sc, newEvent, CreateEventResponses.EventCreated, tokens);
-
-                        await sc.Context.SendActivityAsync(replyMessage, cancellationToken);
+                        await sc.Context.SendActivityAsync(prompt, cancellationToken);
                     }
                     else
                     {
-                        var prompt = ResponseManager.GetResponse(CreateEventResponses.EventCreationFailed);
-                        return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = prompt }, cancellationToken);
+                        var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[EventCreationFailed]", null);
+                        var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+                        return await sc.PromptAsync(Actions.Prompt, new PromptOptions { Prompt = (Activity)prompt }, cancellationToken);
                     }
 
                     await ClearAllState(sc.Context);
@@ -693,10 +688,15 @@ namespace CalendarSkill.Dialogs
                     return await sc.NextAsync(cancellationToken: cancellationToken);
                 }
 
+                var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoStartDate]", null);
+                var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+                var retryLGResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoStartDateRetry]", null);
+                var retryPrompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, retryLGResult, null);
+
                 return await sc.PromptAsync(Actions.DatePromptForCreate, new PromptOptions
                 {
-                    Prompt = ResponseManager.GetResponse(CreateEventResponses.NoStartDate),
-                    RetryPrompt = ResponseManager.GetResponse(CreateEventResponses.NoStartDateRetry),
+                    Prompt = (Activity)prompt,
+                    RetryPrompt = (Activity)retryPrompt,
                 }, cancellationToken);
             }
             catch (Exception ex)
@@ -794,11 +794,18 @@ namespace CalendarSkill.Dialogs
 
                 if (!dialogState.StartTime.Any())
                 {
+                    var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoStartTime]", null);
+                    var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+                    var retryLGResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoStartTimeRetry]", null);
+                    var retryPrompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, retryLGResult, null);
+                    var noSkipLGResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoStartTimeNoSkip]", null);
+                    var noSkipPrompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, noSkipLGResult, null);
+
                     return await sc.PromptAsync(Actions.TimePromptForCreate, new NoSkipPromptOptions
                     {
-                        Prompt = ResponseManager.GetResponse(CreateEventResponses.NoStartTime),
-                        RetryPrompt = ResponseManager.GetResponse(CreateEventResponses.NoStartTimeRetry),
-                        NoSkipPrompt = ResponseManager.GetResponse(CreateEventResponses.NoStartTimeNoSkip),
+                        Prompt = (Activity)prompt,
+                        RetryPrompt = (Activity)retryPrompt,
+                        NoSkipPrompt = (Activity)noSkipPrompt
                     }, cancellationToken);
                 }
                 else
@@ -900,10 +907,15 @@ namespace CalendarSkill.Dialogs
                     return await sc.NextAsync(cancellationToken: cancellationToken);
                 }
 
+                var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoDuration]", null);
+                var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+                var retryLGResult = await _lgMultiLangEngine.Generate(sc.Context, "[NoDurationRetry]", null);
+                var retryPrompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, retryLGResult, null);
+
                 return await sc.PromptAsync(Actions.DurationPromptForCreate, new PromptOptions
                 {
-                    Prompt = ResponseManager.GetResponse(CreateEventResponses.NoDuration),
-                    RetryPrompt = ResponseManager.GetResponse(CreateEventResponses.NoDurationRetry)
+                    Prompt = (Activity)prompt,
+                    RetryPrompt = (Activity)retryPrompt
                 }, cancellationToken);
             }
             catch (Exception ex)
@@ -1011,10 +1023,15 @@ namespace CalendarSkill.Dialogs
         {
             try
             {
+                var lgResult = await _lgMultiLangEngine.Generate(sc.Context, "[GetRecreateInfo]", null);
+                var prompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, lgResult, null);
+                var retryLGResult = await _lgMultiLangEngine.Generate(sc.Context, "[GetRecreateInfoRetry]", null);
+                var retryPrompt = await new TextMessageActivityGenerator().CreateActivityFromText(sc.Context, retryLGResult, null);
+
                 return await sc.PromptAsync(Actions.GetRecreateInfoPrompt, new PromptOptions
                 {
-                    Prompt = ResponseManager.GetResponse(CreateEventResponses.GetRecreateInfo),
-                    RetryPrompt = ResponseManager.GetResponse(CreateEventResponses.GetRecreateInfoRetry)
+                    Prompt = (Activity)prompt,
+                    RetryPrompt = (Activity)retryPrompt
                 }, cancellationToken);
             }
             catch (Exception ex)
@@ -1113,45 +1130,6 @@ namespace CalendarSkill.Dialogs
                 }
 
                 return await sc.EndDialogAsync(true, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                await HandleDialogExceptions(sc, ex);
-
-                return new DialogTurnResult(DialogTurnStatus.Cancelled, CommonUtil.DialogTurnResultCancelAllDialogs);
-            }
-        }
-
-        private async Task<DialogTurnResult> InitCreateEventDialogState(WaterfallStepContext sc, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            try
-            {
-                var skillOptions = (CalendarSkillDialogOptions)sc.Options;
-                var userState = await CalendarStateAccessor.GetAsync(sc.Context);
-                var dialogState = new CreateEventDialogState();
-
-                var locale = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-                var localeConfig = Services.CognitiveModelSets[locale];
-
-                // Update state with email luis result and entities --- todo: use luis result in adaptive dialog
-                var luisResult = await localeConfig.LuisServices["calendar"].RecognizeAsync<calendarLuis>(sc.Context);
-                userState.LuisResult = luisResult;
-                localeConfig.LuisServices.TryGetValue("general", out var luisService);
-                var generalLuisResult = await luisService.RecognizeAsync<General>(sc.Context);
-                userState.GeneralLuisResult = generalLuisResult;
-
-                var skillLuisResult = luisResult?.TopIntent().intent;
-                var generalTopIntent = generalLuisResult?.TopIntent().intent;
-
-                if (skillOptions != null && skillOptions.SubFlowMode)
-                {
-                    dialogState = userState?.CacheModel != null ? new CreateEventDialogState(userState?.CacheModel) : dialogState;
-                }
-
-                var newState = await DigestCreateEventLuisResult(sc, userState.LuisResult, userState.GeneralLuisResult, dialogState, true);
-                sc.State.Dialog.Add(CalendarStateKey, newState);
-
-                return await sc.NextAsync();
             }
             catch (Exception ex)
             {
@@ -1340,9 +1318,9 @@ namespace CalendarSkill.Dialogs
         {
             return new LuisRecognizer(new LuisApplication()
             {
-                Endpoint = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/807cd523-34cb-4911-b149-cdcb58f661cc?verbose=true&timezoneOffset=-360&subscription-key=80d731206676475bb03d30e3bc2ee07e&q=",//Configuration["LuisAPIHostName"],
-                EndpointKey = "80d731206676475bb03d30e3bc2ee07e", //Configuration["LuisAPIKey"],
-                ApplicationId = "807cd523-34cb-4911-b149-cdcb58f661cc",// Configuration["LuisAppId"]
+                Endpoint = "",
+                EndpointKey = "",
+                ApplicationId = "",
             });
         }
     }

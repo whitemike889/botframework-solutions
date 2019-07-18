@@ -685,6 +685,10 @@ namespace CalendarSkill.Dialogs
             foreach (var person in personList)
             {
                 var mailAddress = person.Emails[0] ?? person.UserPrincipalName;
+                if (mailAddress == null)
+                {
+                    continue;
+                }
 
                 var isDup = false;
                 foreach (var formattedPerson in formattedPersonList)

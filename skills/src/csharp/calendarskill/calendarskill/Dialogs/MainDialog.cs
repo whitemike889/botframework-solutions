@@ -28,6 +28,7 @@ using Microsoft.Bot.Builder.Solutions.Proactive;
 using Microsoft.Bot.Builder.Solutions.Responses;
 using Microsoft.Bot.Connector;
 using Microsoft.Bot.Schema;
+using static CalendarSkill.Models.EventModel;
 
 namespace CalendarSkill.Dialogs
 {
@@ -211,19 +212,31 @@ namespace CalendarSkill.Dialogs
         {
             return new LuisRecognizer(new LuisApplication()
             {
-                Endpoint = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/807cd523-34cb-4911-b149-cdcb58f661cc?verbose=true&timezoneOffset=-360&subscription-key=80d731206676475bb03d30e3bc2ee07e&q=",//Configuration["LuisAPIHostName"],
-                EndpointKey = "80d731206676475bb03d30e3bc2ee07e", //Configuration["LuisAPIKey"],
-                ApplicationId = "807cd523-34cb-4911-b149-cdcb58f661cc",// Configuration["LuisAppId"]
+                Endpoint = "",
+                EndpointKey = "",
+                ApplicationId = "",
             });
         }
 
         protected override async Task OnStartAsync(DialogContext dc, CancellationToken cancellationToken = default(CancellationToken))
         {
+            var state = await _stateAccessor.GetAsync(dc.Context, () => new CalendarSkillState());
             // send a greeting if we're in local mode
             //await dc.Context.SendActivityAsync(_responseManager.GetResponse(CalendarMainResponses.CalendarWelcomeMessage));
 
-            var result = _lgMultiLangEngine.Generate(dc.Context, "[CalendarWelcomeMessage]", null);
-            var activity = await new TextMessageActivityGenerator().CreateActivityFromText(dc.Context, result.Result, null);
+            var result = await _lgMultiLangEngine.Generate(dc.Context, "[CalendarWelcomeMessage]", new Dictionary<string, List<Attendee>>() { { "participants", new List<Attendee>() { new Attendee() { Address = "abc@abc.com", DisplayName = "test name" } } } });
+            var activity = await new TextMessageActivityGenerator().CreateActivityFromText(dc.Context, result, null);
+            //var now = DateTime.UtcNow;
+            //var now1 = now.AddMinutes(90);
+            //var result = await _lgMultiLangEngine.Generate(dc.Context, "[FormatDateTimeDuration]",
+            //    new
+            //    {
+            //        startTime = now,
+            //        endTime = now1
+            //    }
+            //);
+            //var activity = await new TextMessageActivityGenerator().CreateActivityFromText(dc.Context, result, null);
+
             await dc.Context.SendActivityAsync(activity);
         }
 
