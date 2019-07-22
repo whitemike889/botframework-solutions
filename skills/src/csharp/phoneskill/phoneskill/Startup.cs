@@ -103,8 +103,6 @@ namespace PhoneSkill
             services.AddTransient<IBotFrameworkHttpAdapter, DefaultAdapter>();
             services.AddTransient<SkillWebSocketBotAdapter, PhoneSkillWebSocketBotAdapter>();
             services.AddTransient<SkillWebSocketAdapter>();
-            services.AddTransient<SkillHttpBotAdapter, PhoneSkillHttpBotAdapter>();
-            services.AddTransient<SkillHttpAdapter>();
 
             // Configure bot
             services.AddTransient<MainDialog>();
