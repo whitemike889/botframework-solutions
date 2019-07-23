@@ -13,12 +13,12 @@ namespace PhoneSkill.Models
         }
 
         /// <summary>
-        /// Gets the authentication token needed for getting the user's contact list.
+        /// Gets or sets the authentication token needed for getting the user's contact list.
         /// </summary>
         /// <value>
         /// The authentication token needed for getting the user's contact list.
         /// </value>
-        public string Token { get; internal set; }
+        public string Token { get; set; }
 
         /// <summary>
         /// Gets or sets the source of the user's contact list.
