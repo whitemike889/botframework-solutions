@@ -26,6 +26,16 @@ namespace PhoneSkill.Models
         /// </value>
         public ContactCandidate Contact { get; set; }
 
+        /// <summary>
+        /// Gets or sets the URI for the phone number to call (see RFC 3966).
+        /// </summary>
+        /// <value>
+        /// The URI for the phone number to call (see RFC 3966).
+        /// This may be empty if it was not possible to generate an RFC 3966 compliant URI for the phone number,
+        /// for example because it is missing the country code.
+        /// </value>
+        public string Uri { get; set; } = string.Empty;
+
         public override bool Equals(object obj)
         {
             return Equals(obj as OutgoingCall);
@@ -35,17 +45,18 @@ namespace PhoneSkill.Models
         {
             return other != null &&
                    Number == other.Number &&
-                   (Contact == null ? other.Contact == null : EqualityComparer<ContactCandidate>.Default.Equals(Contact, other.Contact));
+                   (Contact == null ? other.Contact == null : EqualityComparer<ContactCandidate>.Default.Equals(Contact, other.Contact)) &&
+                   Uri == other.Uri;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Number, Contact);
+            return HashCode.Combine(Number, Contact, Uri);
         }
 
         public override string ToString()
         {
-            return $"OutgoingCall{{Number={Number}, Contact={Contact}}}";
+            return $"OutgoingCall{{Number={Number}, Contact={Contact}, Uri={Uri}}}";
         }
     }
 }

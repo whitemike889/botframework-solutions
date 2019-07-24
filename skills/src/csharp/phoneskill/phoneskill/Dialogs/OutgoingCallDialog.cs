@@ -331,6 +331,7 @@ namespace PhoneSkill.Dialogs
                 var outgoingCall = new OutgoingCall
                 {
                     Number = state.PhoneNumber,
+                    Uri = GetTelUri(state.PhoneNumber),
                 };
                 if (state.ContactResult.Matches.Count == 1)
                 {
@@ -500,6 +501,28 @@ namespace PhoneSkill.Dialogs
             }
 
             options.Prompt = ResponseManager.GetResponse(templateId, tokens);
+        }
+
+        /// <summary>
+        /// Get a "tel:" URI for the given phone number (see RFC 3966).
+        /// </summary>
+        /// <param name="number">The phone number to put in the URI.</param>
+        /// <returns>A "tel:" URI (see RFC 3966).</returns>
+        private string GetTelUri(string number)
+        {
+            var phoneUtil = PhoneNumbers.PhoneNumberUtil.GetInstance();
+            PhoneNumbers.PhoneNumber phoneNumber;
+            try
+            {
+                // This will fail unless the number has a country code, but we don't know the user's country code, so there's nothing we can do here.
+                phoneNumber = phoneUtil.Parse(number, null);
+            }
+            catch (PhoneNumbers.NumberParseException)
+            {
+                return string.Empty;
+            }
+
+            return phoneUtil.Format(phoneNumber, PhoneNumbers.PhoneNumberFormat.RFC3966);
         }
 
         private string GetSpeakablePhoneNumberType(PhoneNumberType phoneNumberType)
