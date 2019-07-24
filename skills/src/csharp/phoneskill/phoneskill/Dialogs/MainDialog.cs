@@ -27,6 +27,7 @@ namespace PhoneSkill.Dialogs
         private ResponseManager _responseManager;
         private ConversationState _conversationState;
         private IStatePropertyAccessor<PhoneSkillState> _stateAccessor;
+        private readonly OutgoingCallDialog outgoingCallDialog;
 
         public MainDialog(
             BotSettings settings,
@@ -43,6 +44,7 @@ namespace PhoneSkill.Dialogs
             _conversationState = conversationState;
             TelemetryClient = telemetryClient;
             _stateAccessor = _conversationState.CreateProperty<PhoneSkillState>(nameof(PhoneSkillState));
+            this.outgoingCallDialog = outgoingCallDialog;
 
             AddDialog(outgoingCallDialog ?? throw new ArgumentNullException(nameof(outgoingCallDialog)));
         }
@@ -181,6 +183,7 @@ namespace PhoneSkill.Dialogs
                     switch (topIntent)
                     {
                         case General.Intent.Cancel:
+                        case General.Intent.StartOver:
                             {
                                 result = await OnCancel(dc);
                                 break;
@@ -209,6 +212,7 @@ namespace PhoneSkill.Dialogs
             await dc.Context.SendActivityAsync(_responseManager.GetResponse(PhoneMainResponses.CancelMessage));
             await CompleteAsync(dc);
             await dc.CancelAllDialogsAsync();
+            await outgoingCallDialog.OnCancel(dc);
             return InterruptionAction.StartedDialog;
         }
 
@@ -242,6 +246,7 @@ namespace PhoneSkill.Dialogs
 
             await dc.Context.SendActivityAsync(_responseManager.GetResponse(PhoneMainResponses.LogOut));
 
+            await outgoingCallDialog.OnLogout(dc);
             return InterruptionAction.StartedDialog;
         }
 

@@ -78,6 +78,20 @@ namespace PhoneSkill.Dialogs
             contactFilter = new ContactFilter();
         }
 
+        public async Task OnCancel(DialogContext dialogContext)
+        {
+            var state = await PhoneStateAccessor.GetAsync(dialogContext.Context);
+            state.ClearExceptAuth();
+        }
+
+        public async Task OnLogout(DialogContext dialogContext)
+        {
+            var state = await PhoneStateAccessor.GetAsync(dialogContext.Context);
+
+            // When the user logs out, remove the login token and all their personal data from the state.
+            state.Clear();
+        }
+
         private async Task<DialogTurnResult> PromptForRecipient(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             try
