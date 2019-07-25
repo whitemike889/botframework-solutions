@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <LangVersion>7.1</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Bot.Builder.Skills">
+      <HintPath>private\Microsoft.Bot.Builder.Skills.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Bot.Builder.Solutions">
+      <HintPath>private\Microsoft.Bot.Builder.Solutions.dll</HintPath>
+    </Reference>
+    <PackageReference Include="Microsoft.Bot.Builder" Version="4.5.1"/>
+    <PackageReference Include="Microsoft.Bot.Builder.Dialogs" Version="4.5.1"/>
+    <PackageReference Include="Microsoft.Bot.Schema" Version="4.5.1"/>
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.2"/>
+    <PackageReference Include="Microsoft.Bot.StreamingExtensions" Version="4.5.1-preview1"/>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.2.0.0"/>
+  </ItemGroup>
+</Project>
