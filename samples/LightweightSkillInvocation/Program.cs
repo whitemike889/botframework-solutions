@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -50,29 +51,30 @@ namespace LightweightDialog
             activity.From = new ChannelAccount(id: Guid.NewGuid().ToString());
             activity.Conversation = new ConversationAccount(id: Guid.NewGuid().ToString());
             activity.Recipient = new ChannelAccount(id: Guid.NewGuid().ToString());
-            activity.ChannelId = "testchannel"; // can set to emulator if you want to receive trace activities for debug
+            activity.ChannelId = "test"; // can set to emulator if you want to receive trace activities for debug
 
             // Temporarily required to avoid RouterDialog filtering out of empty messages
             activity.Type = "message";
             activity.Text = "dummy";
             activity.Locale = "en-us";
 
-            // Initially defined slot per item
+            // Initially defined slot per item (propose to not use use)
             var slots = new Dictionary<string, Entity>();
+/*            
             slots.Add("title", new Entity { 
                 Properties = JObject.FromObject(new KeyValuePair<string, string>("Text", "Planning Meeting"))});
             slots.Add("content", new Entity { 
                 Properties = JObject.FromObject(new KeyValuePair<string, string>("Text", "Booking some time for our planning"))});
-
+ */
             // Testing structured objects approach
-            var dummyObject = new DummyObject();
-            dummyObject.Name = "name";
-            dummyObject.Number = 2;
-            slots.Add("complexObject", new Entity { 
-                Properties = JObject.FromObject(dummyObject)});
+            dynamic getCustomer = new ExpandoObject();
+            getCustomer.Id = "3353474574";
+            getCustomer.Details = "Full";
+            slots.Add("customerId", new Entity { 
+                Properties = JObject.FromObject(new KeyValuePair<string, string>("Value", "123456"))});
 
-            // Invoke the 'action1' action and pass the slots
-            activity.SemanticAction = new SemanticAction("action1", slots);
+            // Invoke the 'getCustomerRecord' action and pass the slots
+            activity.SemanticAction = new SemanticAction("getCustomerRecord", slots);
 
             System.Diagnostics.Trace.WriteLine(JsonConvert.SerializeObject(activity));
            
@@ -134,6 +136,7 @@ namespace LightweightDialog
                 if (activity.Type == ActivityTypes.Message && activity.SemanticAction != null)
                 {
                     Console.WriteLine($"Received SemanticAction: {activity.SemanticAction.State}");
+                    System.Diagnostics.Trace.WriteLine(JsonConvert.SerializeObject(activity));
                     foreach(var e in activity.SemanticAction.Entities)
                     {
                         String values = string.Join(",",e.Value.Properties);
