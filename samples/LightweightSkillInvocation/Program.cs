@@ -51,7 +51,7 @@ namespace LightweightDialog
             activity.From = new ChannelAccount(id: Guid.NewGuid().ToString());
             activity.Conversation = new ConversationAccount(id: Guid.NewGuid().ToString());
             activity.Recipient = new ChannelAccount(id: Guid.NewGuid().ToString());
-            activity.ChannelId = "test"; // can set to emulator if you want to receive trace activities for debug
+            activity.ChannelId = "emulator"; // can set to emulator if you want to receive trace activities for debug
 
             // Temporarily required to avoid RouterDialog filtering out of empty messages
             activity.Type = "message";
@@ -71,7 +71,7 @@ namespace LightweightDialog
             getCustomer.Id = "3353474574";
             getCustomer.Details = "Full";
             slots.Add("customerId", new Entity { 
-                Properties = JObject.FromObject(new KeyValuePair<string, string>("Value", "123456"))});
+                Properties = JObject.FromObject(getCustomer)});
 
             // Invoke the 'getCustomerRecord' action and pass the slots
             activity.SemanticAction = new SemanticAction("getCustomerRecord", slots);
