@@ -43,7 +43,7 @@ namespace LightweightDialog
             var skillTransport = new SkillWebSocketTransport(new NullBotTelemetryClient(), wsClient);
 
             // Prepare the SkillDialog (UserState will be removed as a requirement)
-            var skill = new SkillDialog(skillManifest, credentials, new NullBotTelemetryClient(), userState, null, skillTransport);
+            var skill = new SkillDialog(skillManifest, credentials, new NullBotTelemetryClient(), userState, null, null, skillTransport);
 
             // SkillDialog can't be invoked directly through BeginDialog with DialogHost so we currently have to use an Activity
             // rather than just pass a SemanticAction through DialogOptions.
