@@ -264,7 +264,7 @@ namespace CalendarSkill.Dialogs
 
                 if (!state.StartDate.Any())
                 {
-                    return await sc.BeginDialogAsync(Actions.UpdateStartDateForCreate, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotFound), cancellationToken);
+                    return await sc.BeginDialogAsync(Actions.UpdateStartDateForCreate, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotFound), cancellationToken);
                 }
                 else
                 {
@@ -285,7 +285,7 @@ namespace CalendarSkill.Dialogs
                 var state = await Accessor.GetAsync(sc.Context, cancellationToken: cancellationToken);
                 if (state.RecreateState == null || state.RecreateState == RecreateEventState.Time)
                 {
-                    return await sc.BeginDialogAsync(Actions.UpdateStartTimeForCreate, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotFound), cancellationToken);
+                    return await sc.BeginDialogAsync(Actions.UpdateStartTimeForCreate, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotFound), cancellationToken);
                 }
                 else
                 {
@@ -307,7 +307,7 @@ namespace CalendarSkill.Dialogs
 
                 if (state.EndDateTime == null)
                 {
-                    return await sc.BeginDialogAsync(Actions.UpdateDurationForCreate, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotFound), cancellationToken);
+                    return await sc.BeginDialogAsync(Actions.UpdateDurationForCreate, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotFound), cancellationToken);
                 }
                 else
                 {

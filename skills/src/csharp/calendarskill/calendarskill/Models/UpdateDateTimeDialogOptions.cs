@@ -3,14 +3,14 @@
 
 namespace CalendarSkill.Models
 {
-    public class UpdateDateTimeDialogOptions
+    public class ChooseMeetingToUpdateDialogOptions
     {
-        public UpdateDateTimeDialogOptions()
+        public ChooseMeetingToUpdateDialogOptions()
         {
             Reason = UpdateReason.NotFound;
         }
 
-        public UpdateDateTimeDialogOptions(UpdateReason reason)
+        public ChooseMeetingToUpdateDialogOptions(UpdateReason reason)
         {
             Reason = reason;
         }

@@ -44,19 +44,19 @@ namespace CalendarSkill.Dialogs
             {
                 GetAuthToken,
                 AfterGetAuthToken,
-                FromTokenToStartTime,
+                ChooseMeeting,
                 ConfirmBeforeAction,
                 ChangeEventStatus,
             };
 
-            var updateStartTime = new WaterfallStep[]
+            var chooseMeetingToUpdate = new WaterfallStep[]
             {
-                UpdateStartTime,
-                AfterUpdateStartTime,
+                ChooseMeetingToUpdate,
+                AfterChooseMeetingToUpdate,
             };
 
             AddDialog(new WaterfallDialog(Actions.ChangeEventStatus, changeEventStatus) { TelemetryClient = telemetryClient });
-            AddDialog(new WaterfallDialog(Actions.UpdateStartTime, updateStartTime) { TelemetryClient = telemetryClient });
+            AddDialog(new WaterfallDialog(Actions.ChooseMeetingToUpdate, chooseMeetingToUpdate) { TelemetryClient = telemetryClient });
 
             // Set starting dialog for component
             InitialDialogId = Actions.ChangeEventStatus;
@@ -164,7 +164,7 @@ namespace CalendarSkill.Dialogs
             }
         }
 
-        public async Task<DialogTurnResult> FromTokenToStartTime(WaterfallStepContext sc, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<DialogTurnResult> ChooseMeeting(WaterfallStepContext sc, CancellationToken cancellationToken = default(CancellationToken))
         {
             try
             {
@@ -186,7 +186,7 @@ namespace CalendarSkill.Dialogs
                 var calendarService = ServiceManager.InitCalendarService(state.APIToken, state.EventSource);
                 if (state.StartDateTime == null)
                 {
-                    return await sc.BeginDialogAsync(Actions.UpdateStartTime, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotFound));
+                    return await sc.BeginDialogAsync(Actions.ChooseMeetingToUpdate, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotFound));
                 }
                 else
                 {
@@ -205,7 +205,7 @@ namespace CalendarSkill.Dialogs
             }
         }
 
-        public async Task<DialogTurnResult> UpdateStartTime(WaterfallStepContext sc, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<DialogTurnResult> ChooseMeetingToUpdate(WaterfallStepContext sc, CancellationToken cancellationToken = default(CancellationToken))
         {
             try
             {
@@ -265,7 +265,7 @@ namespace CalendarSkill.Dialogs
             }
         }
 
-        public async Task<DialogTurnResult> AfterUpdateStartTime(WaterfallStepContext sc, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<DialogTurnResult> AfterChooseMeetingToUpdate(WaterfallStepContext sc, CancellationToken cancellationToken = default(CancellationToken))
         {
             try
             {

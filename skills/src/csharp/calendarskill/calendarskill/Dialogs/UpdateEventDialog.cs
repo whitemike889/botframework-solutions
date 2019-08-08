@@ -63,7 +63,7 @@ namespace CalendarSkill.Dialogs
 
             // Define the conversation flow using a waterfall model.
             AddDialog(new WaterfallDialog(Actions.UpdateEventTime, updateEvent) { TelemetryClient = telemetryClient });
-            AddDialog(new WaterfallDialog(Actions.UpdateStartTime, updateStartTime) { TelemetryClient = telemetryClient });
+            AddDialog(new WaterfallDialog(Actions.ChooseMeetingToUpdate, updateStartTime) { TelemetryClient = telemetryClient });
             AddDialog(new WaterfallDialog(Actions.UpdateNewStartTime, updateNewStartTime) { TelemetryClient = telemetryClient });
 
             // Set starting dialog for component
@@ -93,7 +93,7 @@ namespace CalendarSkill.Dialogs
                 }
                 else if (state.NewStartDateTime == null)
                 {
-                    return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotFound));
+                    return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotFound));
                 }
                 else
                 {
@@ -258,7 +258,7 @@ namespace CalendarSkill.Dialogs
                     }
                     else
                     {
-                        return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotFound));
+                        return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotFound));
                     }
 
                     state.NewStartDateTime = TimeZoneInfo.ConvertTimeToUtc(state.NewStartDateTime.Value, state.GetUserTimeZone());
@@ -333,12 +333,12 @@ namespace CalendarSkill.Dialogs
                     }
                     else
                     {
-                        return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotADateTime));
+                        return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotADateTime));
                     }
                 }
                 else
                 {
-                    return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotADateTime));
+                    return await sc.BeginDialogAsync(Actions.UpdateNewStartTime, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotADateTime));
                 }
             }
             catch (Exception ex)
@@ -359,7 +359,7 @@ namespace CalendarSkill.Dialogs
                 }
 
                 var calendarService = ServiceManager.InitCalendarService(state.APIToken, state.EventSource);
-                return await sc.BeginDialogAsync(Actions.UpdateStartTime, new UpdateDateTimeDialogOptions(UpdateDateTimeDialogOptions.UpdateReason.NotFound));
+                return await sc.BeginDialogAsync(Actions.ChooseMeetingToUpdate, new ChooseMeetingToUpdateDialogOptions(ChooseMeetingToUpdateDialogOptions.UpdateReason.NotFound));
             }
             catch (SkillException ex)
             {

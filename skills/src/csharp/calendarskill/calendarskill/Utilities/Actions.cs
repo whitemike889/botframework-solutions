@@ -23,7 +23,7 @@
         public const string UpdateRecipientName = "UpdateRecipientName";
         public const string ShowTimeRemaining = "ShowTimeRemaining";
         public const string TakeFurtherAction = "TakeFurtherAction";
-        public const string UpdateStartTime = "UpdateStartTime";
+        public const string ChooseMeetingToUpdate = "UpdateStartTime";
         public const string UpdateNewStartTime = "UpdateNewStartTime";
         public const string UpdateStartDateForCreate = "UpdateStartDateForCreate";
         public const string UpdateStartTimeForCreate = "UpdateStartTimeForCreate";
