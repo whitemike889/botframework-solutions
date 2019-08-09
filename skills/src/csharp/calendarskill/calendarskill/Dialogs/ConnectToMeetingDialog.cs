@@ -128,7 +128,7 @@ namespace CalendarSkill.Dialogs
 
                 var state = await Accessor.GetAsync(sc.Context);
                 var options = sc.Options as ShowMeetingsDialogOptions;
-                if (state.SummaryEvents == null)
+                if (state.ShowingMeetings == null)
                 {
                     // this will lead to error when test
                     if (string.IsNullOrEmpty(state.APIToken))
@@ -139,10 +139,10 @@ namespace CalendarSkill.Dialogs
 
                     var calendarService = ServiceManager.InitCalendarService(state.APIToken, state.EventSource);
 
-                    state.SummaryEvents = await GetMeetingToJoin(sc);
+                    state.ShowingMeetings = await GetMeetingToJoin(sc);
                 }
 
-                if (state.SummaryEvents.Count == 0)
+                if (state.ShowingMeetings.Count == 0)
                 {
                     var prompt = await LGHelper.GenerateMessageAsync(_lgMultiLangEngine, sc.Context, "[MeetingNotFound]", null);
 
@@ -150,14 +150,14 @@ namespace CalendarSkill.Dialogs
                     state.Clear();
                     return await sc.EndDialogAsync(true);
                 }
-                else if (state.SummaryEvents.Count == 1)
+                else if (state.ShowingMeetings.Count == 1)
                 {
-                    state.ConfirmedMeeting.Add(state.SummaryEvents.First());
+                    state.ConfirmedMeeting.Add(state.ShowingMeetings.First());
                     return await sc.ReplaceDialogAsync(Actions.ConfirmNumber, sc.Options);
                 }
 
                 // Multiple events
-                var firstEvent = GetCurrentPageMeetings(state.SummaryEvents, state).First();
+                var firstEvent = GetCurrentPageMeetings(state.ShowingMeetings, state).First();
 
                 var responseParams = new
                 {
@@ -165,7 +165,7 @@ namespace CalendarSkill.Dialogs
                     timezone = state.GetUserTimeZone().Id
                 };
 
-                var reply = await GetGeneralMeetingListResponseAsync(sc, _lgMultiLangEngine, CalendarCommonStrings.MeetingsToJoin, GetCurrentPageMeetings(state.SummaryEvents, state), "SelectMeeting", responseParams);
+                var reply = await GetGeneralMeetingListResponseAsync(sc, _lgMultiLangEngine, CalendarCommonStrings.MeetingsToJoin, GetCurrentPageMeetings(state.ShowingMeetings, state), "SelectMeeting", responseParams);
 
                 return await sc.PromptAsync(Actions.Prompt, new PromptOptions() { Prompt = reply });
             }
@@ -199,9 +199,9 @@ namespace CalendarSkill.Dialogs
                     return await sc.CancelAllDialogsAsync();
                 }
 
-                if (generalTopIntent == General.Intent.ShowNext && state.SummaryEvents != null)
+                if (generalTopIntent == General.Intent.ShowNext && state.ShowingMeetings != null)
                 {
-                    if ((state.ShowEventIndex + 1) * state.PageSize < state.SummaryEvents.Count)
+                    if ((state.ShowEventIndex + 1) * state.PageSize < state.ShowingMeetings.Count)
                     {
                         state.ShowEventIndex++;
                     }
@@ -214,7 +214,7 @@ namespace CalendarSkill.Dialogs
 
                     return await sc.ReplaceDialogAsync(Actions.ConnectToMeeting, sc.Options);
                 }
-                else if (generalTopIntent == General.Intent.ShowPrevious && state.SummaryEvents != null)
+                else if (generalTopIntent == General.Intent.ShowPrevious && state.ShowingMeetings != null)
                 {
                     if (state.ShowEventIndex > 0)
                     {
@@ -241,17 +241,17 @@ namespace CalendarSkill.Dialogs
                 }
                 else if (promptRecognizerResult.Succeeded && promptRecognizerResult.Value == true)
                 {
-                    var currentList = GetCurrentPageMeetings(state.SummaryEvents, state);
+                    var currentList = GetCurrentPageMeetings(state.ShowingMeetings, state);
                     state.ConfirmedMeeting.Add(currentList.First());
                     return await sc.ReplaceDialogAsync(Actions.ConfirmNumber, sc.Options);
                 }
-                else if (state.SummaryEvents.Count == 1)
+                else if (state.ShowingMeetings.Count == 1)
                 {
                     state.Clear();
                     return await sc.CancelAllDialogsAsync();
                 }
 
-                if (state.SummaryEvents.Count > 1)
+                if (state.ShowingMeetings.Count > 1)
                 {
                     var filteredMeetingList = new List<EventModel>();
                     var showMeetingReason = ShowMeetingReason.FirstShowOverview;
@@ -262,7 +262,7 @@ namespace CalendarSkill.Dialogs
                     {
                         var value = luisResult.Entities.ordinal[0];
                         var num = int.Parse(value.ToString());
-                        var currentList = GetCurrentPageMeetings(state.SummaryEvents, state);
+                        var currentList = GetCurrentPageMeetings(state.ShowingMeetings, state);
                         if (num > 0 && num <= currentList.Count)
                         {
                             filteredMeetingList.Add(currentList[num - 1]);
@@ -273,7 +273,7 @@ namespace CalendarSkill.Dialogs
                     {
                         var value = generalLuisResult.Entities.number[0];
                         var num = int.Parse(value.ToString());
-                        var currentList = GetCurrentPageMeetings(state.SummaryEvents, state);
+                        var currentList = GetCurrentPageMeetings(state.ShowingMeetings, state);
                         if (num > 0 && num <= currentList.Count)
                         {
                             filteredMeetingList.Add(currentList[num - 1]);
@@ -295,7 +295,7 @@ namespace CalendarSkill.Dialogs
                                 if (dateTime != null)
                                 {
                                     var utcStartTime = TimeZoneInfo.ConvertTimeToUtc(dateTime, state.GetUserTimeZone());
-                                    foreach (var meeting in GetCurrentPageMeetings(state.SummaryEvents, state))
+                                    foreach (var meeting in GetCurrentPageMeetings(state.ShowingMeetings, state))
                                     {
                                         if (meeting.StartTime.TimeOfDay == utcStartTime.TimeOfDay)
                                         {
@@ -318,7 +318,7 @@ namespace CalendarSkill.Dialogs
                             subject = GetSubjectFromEntity(luisResult.Entities);
                         }
 
-                        foreach (var meeting in GetCurrentPageMeetings(state.SummaryEvents, state))
+                        foreach (var meeting in GetCurrentPageMeetings(state.ShowingMeetings, state))
                         {
                             if (meeting.Title.ToLower().Contains(subject.ToLower()))
                             {
@@ -338,7 +338,7 @@ namespace CalendarSkill.Dialogs
                             contactNameList = GetAttendeesFromEntity(luisResult.Entities, userInput);
                         }
 
-                        foreach (var meeting in GetCurrentPageMeetings(state.SummaryEvents, state))
+                        foreach (var meeting in GetCurrentPageMeetings(state.ShowingMeetings, state))
                         {
                             var containsAllContacts = true;
                             foreach (var contactName in contactNameList)
@@ -361,12 +361,12 @@ namespace CalendarSkill.Dialogs
 
                     if (filteredMeetingList.Count == 1)
                     {
-                        state.FocusEvents = filteredMeetingList;
+                        state.FocusedEvents = filteredMeetingList;
                         return await sc.BeginDialogAsync(Actions.ConfirmNumber, sc.Options);
                     }
                     else if (filteredMeetingList.Count > 1)
                     {
-                        state.SummaryEvents = filteredMeetingList;
+                        state.ShowingMeetings = filteredMeetingList;
                         state.FilterMeetingKeyWord = filterKeyWord;
                         return await sc.ReplaceDialogAsync(Actions.ConnectToMeeting, new ShowMeetingsDialogOptions(showMeetingReason, sc.Options));
                     }
@@ -431,7 +431,7 @@ namespace CalendarSkill.Dialogs
                 }
             }
 
-            state.SummaryEvents.Clear();
+            state.ShowingMeetings.Clear();
 
             return await sc.EndDialogAsync();
         }
