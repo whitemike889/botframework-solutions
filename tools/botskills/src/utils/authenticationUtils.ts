@@ -18,10 +18,9 @@ import { ChildProcessUtils, isValidAzVersion } from './';
 
 export class AuthenticationUtils {
     public childProcessUtils: ChildProcessUtils;
-    // tslint:disable-next-line: max-line-length
-    private docLink: string = 'https://aka.ms/vamanualauthsteps';
+    private readonly docLink: string = 'https://aka.ms/vamanualauthsteps';
 
-    private scopeMap: Map<string, string> = new Map([
+    private readonly scopeMap: Map<string, string> = new Map([
         ['Files.Read.Selected', '5447fe39-cb82-4c1a-b977-520e67e724eb'],
         ['Files.ReadWrite.Selected', '17dde5bd-8c17-420f-a486-969730c1b827'],
         ['Files.ReadWrite.AppFolder', '8019c312-3263-48e6-825e-2b833497195b'],
@@ -74,7 +73,7 @@ export class AuthenticationUtils {
         ['profile', '14dad69e-099b-42c9-810b-d002981feec1']
     ]);
 
-    constructor() {
+    public constructor() {
         this.childProcessUtils = new ChildProcessUtils();
     }
 
@@ -85,8 +84,11 @@ export class AuthenticationUtils {
     private createScopeManifest(scopes: string[]): IScopeManifest[] {
         return [{
             resourceAppId: '00000003-0000-0000-c000-000000000000',
-            resourceAccess: scopes.filter((scope: string) => this.scopeMap.has(scope))
-                .map((scope: string) => {
+            resourceAccess: scopes.filter((scope: string): boolean => this.scopeMap.has(scope))
+                .map((scope: string): {
+                    id: string;
+                    type: string;
+                } => {
                     return {
                         id: this.getScopeId(scope),
                         type: 'Scope'
@@ -108,11 +110,11 @@ export class AuthenticationUtils {
         try {
             // configuring bot auth settings
             logger.message('Checking for authentication settings ...');
-            if (manifest.authenticationConnections) {
+            if (manifest.authenticationConnections !== undefined) {
                 const aadConfig: IAuthenticationConnection | undefined = manifest.authenticationConnections.find(
-                    (connection: IAuthenticationConnection) => connection.serviceProviderId === 'Azure Active Directory v2');
+                    (connection: IAuthenticationConnection): boolean => connection.serviceProviderId === 'Azure Active Directory v2');
                 if (aadConfig) {
-                    this.validateAzVersion(logger);
+                    await this.validateAzVersion(logger);
                     logger.message('Configuring Azure AD connection ...');
 
                     let connectionName: string = aadConfig.id;
@@ -128,9 +130,10 @@ export class AuthenticationUtils {
                     currentCommand = listAuthSettingsCommand;
 
                     const connectionsResult: string = await this.childProcessUtils.tryExecute(listAuthSettingsCommand);
+                    // eslint-disable-next-line @typescript-eslint/tslint/config
                     const connections: IAzureAuthSetting[] = JSON.parse(connectionsResult);
                     const aadConnection: IAzureAuthSetting | undefined = connections.find(
-                        (connection: IAzureAuthSetting) =>
+                        (connection: IAzureAuthSetting): boolean =>
                             connection.properties.serviceProviderDisplayName === 'Azure Active Directory v2');
                     if (aadConnection) {
                         const settingName: string = aadConnection.name.split('/')[1];
@@ -145,6 +148,7 @@ export class AuthenticationUtils {
                         currentCommand = showAuthSettingsCommand;
 
                         const botAuthSettingResult: string = await this.childProcessUtils.tryExecute(showAuthSettingsCommand);
+                        // eslint-disable-next-line @typescript-eslint/tslint/config
                         const botAuthSetting: IAzureAuthSetting = JSON.parse(botAuthSettingResult);
                         const existingScopes: string[] = botAuthSetting.properties.scopes.split(' ');
                         scopes = scopes.concat(existingScopes);
@@ -159,22 +163,23 @@ export class AuthenticationUtils {
                         logger.command('Deleting current bot authentication setting', deleteAuthSettingCommand.join(' '));
                         currentCommand = deleteAuthSettingCommand;
 
-                        const deleteResult: string = await this.childProcessUtils.tryExecute(deleteAuthSettingCommand);
+                        await this.childProcessUtils.tryExecute(deleteAuthSettingCommand);
                     }
 
                     // update appsettings.json
                     logger.message('Updating appsettings.json ...');
+                    // eslint-disable-next-line @typescript-eslint/tslint/config
                     const appSettings: IAppSettingOauthConnection = JSON.parse(readFileSync(configuration.appSettingsFile, 'UTF8'));
 
                     // check for and remove existing aad connections
-                    if (appSettings.oauthConnections) {
+                    if (appSettings.oauthConnections !== undefined) {
                         appSettings.oauthConnections = appSettings.oauthConnections.filter(
-                            (connection: IOauthConnection) => connection.provider !== 'Azure Active Directory v2');
+                            (connection: IOauthConnection): boolean => connection.provider !== 'Azure Active Directory v2');
                     }
 
                     // set or add new oauth setting
                     const oauthSetting: IOauthConnection = { name: connectionName, provider: 'Azure Active Directory v2' };
-                    if (!appSettings.oauthConnections) {
+                    if (appSettings.oauthConnections === undefined) {
                         appSettings.oauthConnections = [oauthSetting];
                     } else {
                         appSettings.oauthConnections.push(oauthSetting);
@@ -195,6 +200,7 @@ export class AuthenticationUtils {
                     currentCommand = azureAppShowCommand;
 
                     const azureAppShowResult: string = await this.childProcessUtils.tryExecute(azureAppShowCommand);
+                    // eslint-disable-next-line @typescript-eslint/tslint/config
                     const azureAppReplyUrls: IAppShowReplyUrl = JSON.parse(azureAppShowResult);
 
                     // get the Reply Urls from the app
@@ -251,17 +257,20 @@ export class AuthenticationUtils {
         } catch (err) {
             logger.warning(`Could not configure authentication connection automatically.`);
             if (currentCommand.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/tslint/config
                 logger.warning(`There was an error while executing the following command:\n\t${currentCommand.join(' ')}\n${err.message}`);
                 logger.warning(`You must configure one of the following connection types MANUALLY in the Azure Portal:
-        ${manifest.authenticationConnections.map((authConn: IAuthenticationConnection) => authConn.serviceProviderId)
-                    .join(', ')}`);
+        ${manifest.authenticationConnections.map((authConn: IAuthenticationConnection): string => authConn.serviceProviderId)
+        .join(', ')}`);
                 logger.warning(`For more information on setting up the authentication configuration manually go to:\n${this.docLink}`);
-            } else if (manifest.authenticationConnections && manifest.authenticationConnections.length > 0) {
+            } else if (manifest.authenticationConnections !== undefined && manifest.authenticationConnections.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/tslint/config
                 logger.warning(`${err.message} You must configure one of the following connection types MANUALLY in the Azure Portal:
-        ${manifest.authenticationConnections.map((authConn: IAuthenticationConnection) => authConn.serviceProviderId)
-                    .join(', ')}`);
+        ${manifest.authenticationConnections.map((authConn: IAuthenticationConnection): string => authConn.serviceProviderId)
+        .join(', ')}`);
                 logger.warning(`For more information on setting up the authentication configuration manually go to:\n${this.docLink}`);
             } else {
+                // eslint-disable-next-line @typescript-eslint/tslint/config
                 logger.warning(err.message);
             }
 
