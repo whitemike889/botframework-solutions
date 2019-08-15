@@ -4,15 +4,15 @@
  */
 
 import * as program from 'commander';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { extname, isAbsolute, join, resolve } from 'path';
 import { ConnectSkill } from './functionality';
 import { ConsoleLogger, ILogger } from './logger';
-import { ICognitiveModelFile, IConnectConfiguration } from './models';
+import { IConnectConfiguration } from './models';
 import { sanitizePath, validatePairOfArgs } from './utils';
 
 function showErrorHelp(): void {
-    program.outputHelp((str: string) => {
+    program.outputHelp((str: string): string => {
         logger.error(str);
 
         return '';
@@ -27,7 +27,6 @@ program.Command.prototype.unknownOption = (flag: string): void => {
     showErrorHelp();
 };
 
-// tslint:disable: max-line-length
 program
     .name('botskills connect')
     .description('Connect a skill to your assistant bot. Only one of both path or URL to Skill is needed.')
@@ -37,8 +36,7 @@ program
     .option('--cs', 'Determine your assistant project structure to be a CSharp-like structure')
     .option('--ts', 'Determine your assistant project structure to be a TypeScript-like structure')
     .option('--noRefresh', '[OPTIONAL] Determine whether the model of your skills connected are not going to be refreshed (by default they are refreshed)')
-    .option('--dispatchName [name]', '[OPTIONAL] Name of your assistant\'s \'.dispatch\' file (defaults to the name displayed in your Cognitive Models file)')
-    .option('--language [language]', '[OPTIONAL] Locale used for LUIS culture (defaults to \'en-us\')')
+    .option('--languages [languages]', '[OPTIONAL] Comma separated list of locales used for LUIS culture (defaults to \'en-us\')')
     .option('--luisFolder [path]', '[OPTIONAL] Path to the folder containing your Skills\' .lu files (defaults to \'./deployment/resources/skills/en\' inside your assistant folder)')
     .option('--dispatchFolder [path]', '[OPTIONAL] Path to the folder containing your assistant\'s \'.dispatch\' file (defaults to \'./deployment/resources/dispatch/en\' inside your assistant folder)')
     .option('--outFolder [path]', '[OPTIONAL] Path for any output file that may be generated (defaults to your assistant\'s root folder)')
@@ -48,7 +46,7 @@ program
     .option('--appSettingsFile [path]', '[OPTIONAL] Path to your app settings file (defaults to \'appsettings.json\' inside your assistant\'s folder)')
     .option('--cognitiveModelsFile [path]', '[OPTIONAL] Path to your Cognitive Models file (defaults to \'cognitivemodels.json\' inside your assistant\'s folder)')
     .option('--verbose', '[OPTIONAL] Output detailed information about the processing of the tool')
-    .action((cmd: program.Command, actions: program.Command) => undefined);
+    .action((cmd: program.Command, actions: program.Command): undefined => undefined);
 
 const args: program.Command = program.parse(process.argv);
 
@@ -56,7 +54,6 @@ if (process.argv.length < 3) {
     program.help();
     process.exit(0);
 }
-
 logger.isVerbose = args.verbose;
 let noRefresh: boolean = false;
 
@@ -66,7 +63,7 @@ const csAndTsValidationResult: string = validatePairOfArgs(args.cs, args.ts);
 if (csAndTsValidationResult) {
     logger.error(
         csAndTsValidationResult.replace('{0}', 'cs')
-        .replace('{1}', 'ts')
+            .replace('{1}', 'ts')
     );
     process.exit(1);
 }
@@ -89,7 +86,7 @@ const manifestValidationResult: string = validatePairOfArgs(args.localManifest, 
 if (manifestValidationResult) {
     logger.error(
         manifestValidationResult.replace('{0}', 'localManifest')
-        .replace('{1}', 'remoteManifest')
+            .replace('{1}', 'remoteManifest')
     );
     process.exit(1);
 }
@@ -137,31 +134,20 @@ configuration.appSettingsFile = args.appSettingsFile || join(configuration.outFo
 const cognitiveModelsFilePath: string = args.cognitiveModelsFile || join(configuration.outFolder, (args.ts ? join('src', 'cognitivemodels.json') : 'cognitivemodels.json'));
 configuration.cognitiveModelsFile = cognitiveModelsFilePath;
 
-// language validation
-const language: string = args.language || 'en-us';
-configuration.language = language;
-const languageCode: string = (language.split('-'))[0];
+// languages validation
+const languages: string[] = args.languages ? args.languages.split(',') : ['en-us'];
+configuration.languages = languages;
 
 // luisFolder validation
-configuration.luisFolder = args.luisFolder ? sanitizePath(args.luisFolder) : join(configuration.outFolder, 'Deployment', 'Resources', 'Skills', languageCode);
+configuration.luisFolder = args.luisFolder ? sanitizePath(args.luisFolder) : join(configuration.outFolder, 'Deployment', 'Resources', 'Skills');
 
 // dispatchFolder validation
-configuration.dispatchFolder = args.dispatchFolder ? sanitizePath(args.dispatchFolder) : join(configuration.outFolder, 'Deployment', 'Resources', 'Dispatch', languageCode);
+configuration.dispatchFolder = args.dispatchFolder ? sanitizePath(args.dispatchFolder) : join(configuration.outFolder, 'Deployment', 'Resources', 'Dispatch');
 
 // lgOutFolder validation
 configuration.lgOutFolder = args.lgOutFolder ? sanitizePath(args.lgOutFolder) : join(configuration.outFolder, (args.ts ? join('src', 'Services') : 'Services'));
 
-// dispatchName validation
-if (!args.dispatchName) {
-    // try get the dispatch name from the cognitiveModels file
-    const cognitiveModelsFile: ICognitiveModelFile = JSON.parse(readFileSync(cognitiveModelsFilePath, 'UTF8'));
-    configuration.dispatchName = cognitiveModelsFile.cognitiveModels[languageCode].dispatchModel.name;
-} else {
-    configuration.dispatchName = args.dispatchName;
-}
-
 configuration.logger = logger;
-
 // End of arguments validation
 
-new ConnectSkill(logger).connectSkill(<IConnectConfiguration> configuration);
+new ConnectSkill((<IConnectConfiguration> configuration), logger).connectSkill();
