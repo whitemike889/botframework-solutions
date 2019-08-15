@@ -11,7 +11,7 @@ Param(
 	[string] $resourceGroup,
 	[switch] $useDispatch = $true,
     [string] $languages = "en-us",
-    [string] $outFolder = $(Get-Location),
+    [string] $outFolder = $(Join-Path $(Get-Location) "src"),
 	[string] $logFile = $(Join-Path $PSScriptRoot .. "deploy_cognitive_models_log.txt")
 )
 
@@ -110,8 +110,8 @@ $settings = @{ defaultLocale = $languageArr[0]; cognitiveModels = New-Object PSO
 Write-Host "> Deploying cognitive models ..."
 foreach ($language in $languageArr)
 {
-	$langCode = ($language -split "-")[0]
 	$config = New-Object PSObject
+    $langCode = $language
 
 	if ($useDispatch) {
 		# Add dispatch to config
