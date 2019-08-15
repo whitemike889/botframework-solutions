@@ -12,7 +12,7 @@ export interface IUpdateConfiguration {
     remoteManifest: string;
     noRefresh: boolean;
     dispatchName: string;
-    language: string;
+    languages: string[];
     luisFolder: string;
     dispatchFolder: string;
     outFolder: string;
