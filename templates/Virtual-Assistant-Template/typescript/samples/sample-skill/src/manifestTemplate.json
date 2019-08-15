@@ -2,6 +2,7 @@
   "id": "sampleSkill",
   "name": "sampleSkill",
   "description": "This is the description of the sampleSkill",
+  "endpoint": "none",
   "iconUrl": "",
   "authenticationConnections": [],
   "actions": [
@@ -13,7 +14,7 @@
         "triggers": {
           "utteranceSources": [
             {
-              "locale": "en",
+              "locale": "en-us",
               "source": [
                 "sampleSkill#Sample"
               ]
