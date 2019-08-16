@@ -93,10 +93,16 @@ namespace Microsoft.Bot.Builder.Skills
                 var invokeResponse = await this.SkillWebSocketBotAdapter.ProcessActivityAsync(activity, new BotCallbackHandler(this.Bot.OnTurnAsync), cancellationTokenSource.Token).ConfigureAwait(false);
                 _stopWatch.Stop();
 
-                _botTelemetryClient.TrackEvent("SkillWebSocketProcessRequestLatency", null, new Dictionary<string, double>
-                {
-                    { "Latency", _stopWatch.ElapsedMilliseconds },
-                });
+                _botTelemetryClient.TrackEvent(
+                    "SkillWebSocketProcessRequestLatency",
+                    new Dictionary<string, string>
+                    {
+                        { "RequestPath", request.Path },
+                    },
+                    new Dictionary<string, double>
+                    {
+                        { "Latency", _stopWatch.ElapsedMilliseconds },
+                    });
 
                 // trigger cancel token after activity is handled. this will stop the typing indicator
                 cancellationTokenSource.Cancel();
